@@ -6,6 +6,7 @@ import { FilterPanel } from './components/FilterPanel';
 import { DomainTable } from './components/DomainTable';
 import { DetailDrawer } from './components/DetailDrawer';
 import { InsightsPanel } from './components/InsightsPanel';
+import { api, type BackendStatistics } from './api/client';
 
 function App() {
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
@@ -23,11 +24,27 @@ function App() {
 
   const toggleTheme = () => setTheme(t => t === 'dark' ? 'light' : 'dark');
 
+  const [stats, setStats] = useState<BackendStatistics | null>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
+
+  useEffect(() => {
+    api.getStatistics().then(s => {
+      setStats(s);
+      setStatsLoading(false);
+    }).catch(() => setStatsLoading(false));
+  }, []);
+
   const {
     filters,
     updateFilter,
     clearFilters,
-    filteredDomains,
+    domains,
+    total,
+    page,
+    totalPages,
+    loading,
+    error,
+    goToPage,
     selectedIds,
     toggleSelect,
     selectAll,
@@ -37,63 +54,56 @@ function App() {
     detailDomain,
     openDetail,
     closeDetail,
-    totalDomains,
   } = useDomainStore();
 
-  const lastUpdated = '2 minutes ago';
-
-  // Stats calculations
-  const todayDrops = filteredDomains.length;
-  const availableDomains = filteredDomains.filter(d => d.status === 'available').length;
-  const avgLength = filteredDomains.length > 0
-    ? Math.round(filteredDomains.reduce((sum, d) => sum + d.length, 0) / filteredDomains.length)
-    : 0;
+  const lastUpdated = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' });
 
   return (
     <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]">
       <Navbar
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
-        totalDomains={totalDomains}
-        lastUpdated={lastUpdated}
+        totalDomains={total}
+        lastUpdated={`Updated: ${lastUpdated}`}
         theme={theme}
         onToggleTheme={toggleTheme}
       />
 
       <main className="pt-14 flex flex-col h-screen">
-        {/* Stats Header */}
         <div className="px-4 pt-3 pb-2">
           <StatsHeader
-            todayDrops={todayDrops}
-            availableDomains={availableDomains}
-            averageLength={avgLength}
-            lastUpdate="02:14 UTC"
-            totalIndexed="170M+"
+            todayDrops={stats?.todays_drops ?? 0}
+            availableDomains={stats?.available ?? 0}
+            averageLength={Math.round(stats?.average_length ?? 0)}
+            lastUpdate={lastUpdated}
+            totalIndexed={statsLoading ? '...' : `${(total / 1000).toFixed(1)}K`}
           />
         </div>
 
-        {/* Main 3-column layout */}
         <div className="flex flex-1 overflow-hidden">
-          {/* Filter Panel */}
           <FilterPanel
             filters={filters}
             onFilterChange={updateFilter}
             onClear={clearFilters}
-            resultCount={filteredDomains.length}
+            resultCount={total}
           />
 
-          {/* Domain Table */}
           <DomainTable
-            domains={filteredDomains}
+            domains={domains}
             selectedIds={selectedIds}
             onToggleSelect={toggleSelect}
             onSelectAll={selectAll}
             onDeselectAll={deselectAll}
             onDomainClick={openDetail}
             searchQuery={searchQuery}
+            loading={loading}
+            error={error}
+            page={page}
+            totalPages={totalPages}
+            total={total}
+            onPageChange={goToPage}
           />
 
-          {/* Detail Drawer (when open) */}
           {detailDomain && (
             <DetailDrawer
               domain={detailDomain}
@@ -103,9 +113,8 @@ function App() {
             />
           )}
 
-          {/* Insights Panel (when detail is not open) */}
           {!detailDomain && (
-            <InsightsPanel domains={filteredDomains} />
+            <InsightsPanel domains={domains} />
           )}
         </div>
       </main>

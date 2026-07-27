@@ -8,7 +8,7 @@ import {
   type ColumnDef,
 } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { Copy, Bookmark, ExternalLink, ChevronUp, ChevronDown, GripVertical, CheckSquare, Square, Download } from 'lucide-react';
+import { Copy, Bookmark, ExternalLink, ChevronUp, ChevronDown, CheckSquare, Square, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Domain } from '../types';
 
 interface DomainTableProps {
@@ -19,6 +19,12 @@ interface DomainTableProps {
   onDeselectAll: () => void;
   onDomainClick: (domain: Domain) => void;
   searchQuery: string;
+  loading: boolean;
+  error: string | null;
+  page: number;
+  totalPages: number;
+  total: number;
+  onPageChange: (page: number) => void;
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -53,6 +59,12 @@ export function DomainTable({
   onDeselectAll,
   onDomainClick,
   searchQuery,
+  loading,
+  error,
+  page,
+  totalPages,
+  total,
+  onPageChange,
 }: DomainTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const parentRef = useRef<HTMLDivElement>(null);
@@ -83,14 +95,6 @@ export function DomainTable({
         </button>
       ),
       size: 40,
-    },
-    {
-      id: 'drag',
-      header: () => null,
-      cell: () => (
-        <GripVertical className="w-3 h-3 text-[var(--border)]" />
-      ),
-      size: 24,
     },
     {
       accessorKey: 'domain',
@@ -156,23 +160,6 @@ export function DomainTable({
       size: 96,
     },
     {
-      accessorKey: 'brandScore',
-      header: 'Score',
-      cell: ({ row }) => {
-        const score = row.original.brandScore;
-        const color = score >= 80 ? 'var(--success)' : score >= 60 ? 'var(--warning)' : 'var(--danger)';
-        return (
-          <div className="flex items-center gap-1">
-            <div className="w-12 h-1.5 rounded-full bg-[#27272A] overflow-hidden">
-              <div className="h-full rounded-full transition-all" style={{ width: `${score}%`, backgroundColor: color }} />
-            </div>
-            <span className="text-xs tabular-nums" style={{ color }}>{score}/100</span>
-          </div>
-        );
-      },
-      size: 120,
-    },
-    {
       id: 'actions',
       header: '',
       cell: ({ row }) => (
@@ -225,6 +212,33 @@ export function DomainTable({
     overscan: 20,
   });
 
+  if (loading && domains.length === 0) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <div className="text-center space-y-2">
+          <div className="w-6 h-6 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin mx-auto" />
+          <div className="text-xs text-[var(--text-muted)]">Loading domains...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <div className="text-center space-y-2">
+          <div className="text-sm text-[var(--danger)]">{error}</div>
+          <button
+            onClick={() => window.location.reload()}
+            className="text-xs text-[var(--primary)] hover:underline"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (domains.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center">
@@ -238,23 +252,6 @@ export function DomainTable({
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
-      {/* Bulk actions bar */}
-      {selectedIds.size > 0 && (
-        <div className="flex items-center gap-3 px-4 py-2 bg-[var(--primary)]/5 border-b border-[var(--primary)]/20">
-          <span className="text-xs text-[var(--text-muted)]">
-            <span className="text-[var(--text-primary)] font-medium">{selectedIds.size}</span> selected
-          </span>
-          <button className="flex items-center gap-1 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors">
-            <Download className="w-3 h-3" />
-            Export CSV
-          </button>
-          <button className="flex items-center gap-1 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors">
-            <Copy className="w-3 h-3" />
-            Copy domains
-          </button>
-        </div>
-      )}
-
       {/* Scrollable table container */}
       <div ref={parentRef} className="flex-1 overflow-auto">
         <div style={{ height: `${virtualizer.getTotalSize()}px`, width: '100%', position: 'relative' }}>
@@ -310,6 +307,32 @@ export function DomainTable({
               })}
             </tbody>
           </table>
+        </div>
+      </div>
+
+      {/* Pagination */}
+      <div className="flex items-center justify-between px-4 py-2 border-t border-[var(--border)] bg-[var(--bg-panel)]">
+        <span className="text-xs text-[var(--text-muted)]">
+          {total.toLocaleString()} total domains
+        </span>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => onPageChange(page - 1)}
+            disabled={page <= 1}
+            className="p-1 rounded hover:bg-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-primary)] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <span className="text-xs text-[var(--text-muted)] tabular-nums">
+            {page} / {totalPages}
+          </span>
+          <button
+            onClick={() => onPageChange(page + 1)}
+            disabled={page >= totalPages}
+            className="p-1 rounded hover:bg-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-primary)] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
         </div>
       </div>
     </div>

@@ -9,8 +9,6 @@ interface FilterPanelProps {
 }
 
 export function FilterPanel({ filters, onFilterChange, onClear, resultCount }: FilterPanelProps) {
-  const extensions = ['.com', '.net', '.org', '.io'];
-
   return (
     <div className="w-64 shrink-0 border-r border-[var(--border)] bg-[var(--bg-panel)] overflow-y-auto">
       <div className="p-4 space-y-5">
@@ -24,26 +22,6 @@ export function FilterPanel({ filters, onFilterChange, onClear, resultCount }: F
             <RotateCcw className="w-3 h-3" />
             Clear
           </button>
-        </div>
-
-        {/* Extension */}
-        <div>
-          <label className="text-[11px] font-medium text-[var(--text-muted)] uppercase tracking-wider block mb-2">Extension</label>
-          <div className="flex gap-1">
-            {extensions.map(ext => (
-              <button
-                key={ext}
-                onClick={() => onFilterChange('extension', ext)}
-                className={`px-3 py-1.5 text-xs rounded-md border transition-colors ${
-                  filters.extension === ext
-                    ? 'bg-[var(--primary)]/10 border-[var(--primary)] text-[var(--primary)]'
-                    : 'bg-transparent border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--text-muted)]'
-                }`}
-              >
-                {ext}
-              </button>
-            ))}
-          </div>
         </div>
 
         {/* Length Range */}
@@ -146,13 +124,6 @@ export function FilterPanel({ filters, onFilterChange, onClear, resultCount }: F
               placeholder="Contains"
               className="w-full h-7 px-2 text-xs bg-[var(--bg-primary)] border border-[var(--border)] rounded text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none focus:border-[var(--primary)] transition-colors"
             />
-            <input
-              type="text"
-              value={filters.exactMatch}
-              onChange={(e) => onFilterChange('exactMatch', e.target.value)}
-              placeholder="Exact match"
-              className="w-full h-7 px-2 text-xs bg-[var(--bg-primary)] border border-[var(--border)] rounded text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none focus:border-[var(--primary)] transition-colors"
-            />
           </div>
         </div>
 
@@ -169,7 +140,6 @@ export function FilterPanel({ filters, onFilterChange, onClear, resultCount }: F
             <option value="shortest">Shortest Domain</option>
             <option value="longest">Longest Domain</option>
             <option value="alphabetical">Alphabetical</option>
-            <option value="highestScore">Highest Score</option>
           </select>
         </div>
 

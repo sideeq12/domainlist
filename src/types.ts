@@ -7,10 +7,7 @@ export interface Domain {
   numbers: number;
   hasHyphen: boolean;
   dropDate: string;
-  status: 'available' | 'registered' | 'pending';
-  brandScore: number;
-  keywordScore: number;
-  memorabilityScore: number;
+  status: 'available' | 'registered' | 'pending' | 'unknown';
   firstSeen: string;
   lastChecked: string;
 }
@@ -22,14 +19,9 @@ export interface FilterState {
   keyword: string;
   noNumbers: boolean;
   noHyphens: boolean;
-  dictionaryWords: boolean;
-  brandable: boolean;
-  shortDomains: boolean;
-  premiumKeywords: boolean;
   startsWith: string;
   endsWith: string;
   contains: string;
-  exactMatch: string;
   sortBy: SortOption;
 }
 
@@ -38,7 +30,6 @@ export type SortOption =
   | 'oldest'
   | 'shortest'
   | 'longest'
-  | 'alphabetical'
-  | 'highestScore';
+  | 'alphabetical';
 
 export type ViewMode = 'grid' | 'table';

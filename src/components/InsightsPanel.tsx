@@ -1,42 +1,34 @@
 import { Sparkles, TrendingUp, BarChart3, Shuffle } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import type { Domain } from '../types';
-import { MOCK_DOMAINS } from '../data/domains';
+import { api, type TrendingKeywordItem } from '../api/client';
 
 interface InsightsPanelProps {
   domains: Domain[];
 }
 
-const trendingKeywords = [
-  { word: 'ai', count: 342 },
-  { word: 'cloud', count: 287 },
-  { word: 'labs', count: 256 },
-  { word: 'app', count: 234 },
-  { word: 'tech', count: 198 },
-  { word: 'data', count: 176 },
-  { word: 'crypto', count: 154 },
-  { word: 'pulse', count: 142 },
-  { word: 'nexus', count: 131 },
-  { word: 'peak', count: 118 },
-  { word: 'forge', count: 105 },
-  { word: 'hub', count: 98 },
-];
-
 export function InsightsPanel({ domains }: InsightsPanelProps) {
+  const [trending, setTrending] = useState<TrendingKeywordItem[]>([]);
   const [finding, setFinding] = useState(false);
   const [randomGem, setRandomGem] = useState<Domain | null>(null);
 
+  useEffect(() => {
+    api.getTrending().then(d => {
+      setTrending(d.top_keywords.slice(0, 12));
+    }).catch(() => {});
+  }, []);
+
   const bestFinds = useMemo(() => {
-    return [...domains]
-      .sort((a, b) => b.brandScore - a.brandScore)
-      .slice(0, 5);
+    return [...domains].slice(0, 5);
   }, [domains]);
 
   const findRandomGem = () => {
     setFinding(true);
     setTimeout(() => {
-      const idx = Math.floor(Math.random() * MOCK_DOMAINS.length);
-      setRandomGem(MOCK_DOMAINS[idx]);
+      if (domains.length > 0) {
+        const idx = Math.floor(Math.random() * domains.length);
+        setRandomGem(domains[idx]);
+      }
       setFinding(false);
     }, 300);
   };
@@ -60,35 +52,41 @@ export function InsightsPanel({ domains }: InsightsPanelProps) {
         <h2 className="text-xs font-semibold text-[var(--text-primary)] uppercase tracking-wider">Insights</h2>
 
         {/* Trending Keywords */}
-        <div>
-          <div className="flex items-center gap-1.5 mb-2">
-            <TrendingUp className="w-3.5 h-3.5 text-[var(--primary)]" />
-            <h3 className="text-[11px] font-medium text-[var(--text-muted)] uppercase tracking-wider">Trending Keywords</h3>
+        {trending.length > 0 && (
+          <div>
+            <div className="flex items-center gap-1.5 mb-2">
+              <TrendingUp className="w-3.5 h-3.5 text-[var(--primary)]" />
+              <h3 className="text-[11px] font-medium text-[var(--text-muted)] uppercase tracking-wider">Trending Keywords</h3>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {trending.map(({ keyword, count }) => (
+                <span
+                  key={keyword}
+                  className="px-2 py-0.5 text-[11px] font-medium rounded-full border border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--primary)] hover:text-[var(--primary)] transition-colors cursor-pointer"
+                >
+                  {keyword}
+                  <span className="text-[10px] text-[var(--text-muted)]/60 ml-1">{count}</span>
+                </span>
+              ))}
+            </div>
           </div>
-          <div className="flex flex-wrap gap-1.5">
-            {trendingKeywords.map(({ word, count }) => (
-              <span
-                key={word}
-                className="px-2 py-0.5 text-[11px] font-medium rounded-full border border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--primary)] hover:text-[var(--primary)] transition-colors cursor-pointer"
-              >
-                {word}
-                <span className="text-[10px] text-[var(--text-muted)]/60 ml-1">{count}</span>
-              </span>
-            ))}
-          </div>
-        </div>
+        )}
 
-        {/* Today's Best Finds */}
+        {/* Best Finds */}
         <div>
           <div className="flex items-center gap-1.5 mb-2">
             <Sparkles className="w-3.5 h-3.5 text-[var(--warning)]" />
-            <h3 className="text-[11px] font-medium text-[var(--text-muted)] uppercase tracking-wider">Best Finds</h3>
+            <h3 className="text-[11px] font-medium text-[var(--text-muted)] uppercase tracking-wider">Latest Drops</h3>
           </div>
           <div className="space-y-1.5">
-            {bestFinds.slice(0, 5).map(domain => (
+            {bestFinds.map(domain => (
               <div key={domain.id} className="flex items-center justify-between py-1 px-2 rounded hover:bg-[var(--bg-primary)] transition-colors">
                 <span className="text-xs font-medium text-[var(--text-primary)]">{domain.domain}</span>
-                <span className="text-[10px] tabular-nums text-[var(--success)]">{domain.brandScore}</span>
+                <span className={`text-[10px] tabular-nums ${
+                  domain.status === 'available' ? 'text-[var(--success)]' : 'text-[var(--text-muted)]'
+                }`}>
+                  {domain.status}
+                </span>
               </div>
             ))}
           </div>
@@ -125,7 +123,7 @@ export function InsightsPanel({ domains }: InsightsPanelProps) {
           </div>
           <button
             onClick={findRandomGem}
-            disabled={finding}
+            disabled={finding || domains.length === 0}
             className="w-full px-3 py-2 text-xs font-medium rounded-lg bg-[var(--bg-primary)] border border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--success)] hover:text-[var(--success)] transition-colors disabled:opacity-50"
           >
             {finding ? 'Finding...' : 'Find Random Gem'}
@@ -134,7 +132,6 @@ export function InsightsPanel({ domains }: InsightsPanelProps) {
             <div className="mt-2 p-2 rounded-lg bg-[var(--bg-primary)] border border-[var(--border)]">
               <div className="text-sm font-semibold text-[var(--text-primary)]">{randomGem.domain}</div>
               <div className="flex items-center gap-2 mt-1">
-                <span className="text-[10px] text-[var(--text-muted)]">Score: {randomGem.brandScore}/100</span>
                 <span className={`text-[10px] px-1 py-0.5 rounded-full ${
                   randomGem.status === 'available' ? 'text-[var(--success)] bg-[var(--success)]/10' : 'text-[var(--text-muted)] bg-[var(--text-muted)]/10'
                 }`}>

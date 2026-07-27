@@ -11,7 +11,6 @@ interface DetailDrawerProps {
 export function DetailDrawer({ domain, onClose, onToggleSave, isSaved }: DetailDrawerProps) {
   return (
     <div className="w-80 shrink-0 border-l border-[var(--border)] bg-[var(--bg-panel)] overflow-y-auto">
-      {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-[var(--border)]">
         <h3 className="text-xs font-semibold text-[var(--text-primary)] uppercase tracking-wider">Domain Details</h3>
         <button
@@ -23,7 +22,6 @@ export function DetailDrawer({ domain, onClose, onToggleSave, isSaved }: DetailD
       </div>
 
       <div className="p-4 space-y-6">
-        {/* Domain Name */}
         <div>
           <h2 className="text-xl font-bold text-[var(--text-primary)] tracking-tight">{domain.domain}</h2>
           <div className="mt-2">
@@ -35,18 +33,17 @@ export function DetailDrawer({ domain, onClose, onToggleSave, isSaved }: DetailD
             ) : domain.status === 'pending' ? (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-[var(--warning)]/10 text-[var(--warning)] border border-[var(--warning)]/20">
                 <span className="w-1.5 h-1.5 rounded-full bg-[var(--warning)]" />
-                Pending
+                Pending Delete
               </span>
             ) : (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-[var(--text-muted)]/10 text-[var(--text-muted)] border border-[var(--text-muted)]/20">
                 <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-muted)]" />
-                Registered
+                {domain.status === 'unknown' ? 'Unknown' : 'Registered'}
               </span>
             )}
           </div>
         </div>
 
-        {/* Info Grid */}
         <div className="grid grid-cols-2 gap-3">
           <InfoItem label="Extension" value={domain.extension} />
           <InfoItem label="Length" value={`${domain.length} characters`} />
@@ -55,20 +52,9 @@ export function DetailDrawer({ domain, onClose, onToggleSave, isSaved }: DetailD
           <InfoItem label="Hyphen" value={domain.hasHyphen ? 'Yes' : 'No'} />
           <InfoItem label="Drop Date" value={domain.dropDate} />
           <InfoItem label="First Seen" value={domain.firstSeen} />
-          <InfoItem label="Last Checked" value={new Date(domain.lastChecked).toLocaleDateString()} />
+          <InfoItem label="Last Checked" value={domain.lastChecked ? new Date(domain.lastChecked).toLocaleDateString() : 'N/A'} />
         </div>
 
-        {/* Quality Scores */}
-        <div>
-          <h4 className="text-xs font-semibold text-[var(--text-primary)] uppercase tracking-wider mb-3">Quality Scores</h4>
-          <div className="space-y-2.5">
-            <ScoreBar label="Brandability" score={domain.brandScore} />
-            <ScoreBar label="Keyword Value" score={domain.keywordScore} />
-            <ScoreBar label="Memorability" score={domain.memorabilityScore} />
-          </div>
-        </div>
-
-        {/* Actions */}
         <div>
           <h4 className="text-xs font-semibold text-[var(--text-primary)] uppercase tracking-wider mb-3">Actions</h4>
           <div className="grid grid-cols-2 gap-2">
@@ -95,21 +81,6 @@ function InfoItem({ label, value }: { label: string; value: string }) {
     <div>
       <div className="text-[10px] font-medium text-[var(--text-muted)] uppercase tracking-wider">{label}</div>
       <div className="text-sm text-[var(--text-primary)] mt-0.5">{value}</div>
-    </div>
-  );
-}
-
-function ScoreBar({ label, score }: { label: string; score: number }) {
-  const color = score >= 80 ? 'var(--success)' : score >= 60 ? 'var(--warning)' : 'var(--danger)';
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-1">
-        <span className="text-xs text-[var(--text-muted)]">{label}</span>
-        <span className="text-xs tabular-nums" style={{ color }}>{score}/100</span>
-      </div>
-      <div className="h-1.5 rounded-full bg-[var(--border)] overflow-hidden">
-        <div className="h-full rounded-full transition-all" style={{ width: `${score}%`, backgroundColor: color }} />
-      </div>
     </div>
   );
 }
