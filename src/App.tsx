@@ -174,7 +174,7 @@ function App() {
                           ? 'bg-[var(--success)]/10 text-[var(--success)]'
                           : 'bg-[var(--text-muted)]/10 text-[var(--text-muted)]'
                       }`}>
-                        {d.available ? 'Free' : 'Taken'}
+                        {d.available ? 'Available' : 'Taken'}
                       </span>
                     </div>
                   </div>
