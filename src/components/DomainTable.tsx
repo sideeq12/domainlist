@@ -8,7 +8,7 @@ import {
   type ColumnDef,
 } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { Copy, Bookmark, ExternalLink, ChevronUp, ChevronDown, CheckSquare, Square, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Copy, Bookmark, ExternalLink, ChevronUp, ChevronDown, CheckSquare, Square, ChevronLeft, ChevronRight, SlidersHorizontal } from 'lucide-react';
 import type { Domain } from '../types';
 
 interface DomainTableProps {
@@ -25,6 +25,7 @@ interface DomainTableProps {
   totalPages: number;
   total: number;
   onPageChange: (page: number) => void;
+  onToggleFilters?: () => void;
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -65,6 +66,7 @@ export function DomainTable({
   totalPages,
   total,
   onPageChange,
+  onToggleFilters,
 }: DomainTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const parentRef = useRef<HTMLDivElement>(null);
@@ -118,6 +120,7 @@ export function DomainTable({
         <span className="text-xs text-[var(--text-muted)] tabular-nums">{row.original.length}</span>
       ),
       size: 48,
+      meta: { hideOnMobile: true },
     },
     {
       accessorKey: 'letters',
@@ -126,6 +129,7 @@ export function DomainTable({
         <span className="text-xs text-[var(--text-muted)] tabular-nums">{row.original.letters}</span>
       ),
       size: 52,
+      meta: { hideOnMobile: true },
     },
     {
       accessorKey: 'numbers',
@@ -134,6 +138,7 @@ export function DomainTable({
         <span className="text-xs text-[var(--text-muted)] tabular-nums">{row.original.numbers}</span>
       ),
       size: 52,
+      meta: { hideOnMobile: true },
     },
     {
       accessorKey: 'hasHyphen',
@@ -144,6 +149,7 @@ export function DomainTable({
         </span>
       ),
       size: 40,
+      meta: { hideOnMobile: true },
     },
     {
       accessorKey: 'dropDate',
@@ -252,6 +258,20 @@ export function DomainTable({
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
+      {/* Filter toggle for mobile */}
+      {onToggleFilters && (
+        <div className="flex lg:hidden items-center px-3 py-1.5 border-b border-[var(--border)]">
+          <button
+            onClick={onToggleFilters}
+            className="flex items-center gap-1.5 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5" />
+            Filters
+          </button>
+          <span className="ml-auto text-xs text-[var(--text-muted)]">{total.toLocaleString()} domains</span>
+        </div>
+      )}
+
       {/* Scrollable table container */}
       <div ref={parentRef} className="flex-1 overflow-auto">
         <div style={{ height: `${virtualizer.getTotalSize()}px`, width: '100%', position: 'relative' }}>
@@ -259,25 +279,28 @@ export function DomainTable({
             <thead className="sticky top-0 z-10">
               {table.getHeaderGroups().map(headerGroup => (
                 <tr key={headerGroup.id}>
-                  {headerGroup.headers.map(header => (
-                    <th
-                      key={header.id}
-                      style={{ width: header.getSize(), minWidth: header.getSize() }}
-                      className={`h-10 px-2 text-left text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider bg-[var(--bg-primary)] border-b border-[var(--border)] ${
-                        header.column.getCanSort() ? 'cursor-pointer select-none hover:text-[var(--text-primary)]' : ''
-                      }`}
-                      onClick={header.column.getToggleSortingHandler()}
-                    >
-                      <div className="flex items-center gap-1">
-                        {flexRender(header.column.columnDef.header, header.getContext())}
-                        {header.column.getIsSorted() && (
-                          header.column.getIsSorted() === 'asc'
-                            ? <ChevronUp className="w-3 h-3" />
-                            : <ChevronDown className="w-3 h-3" />
-                        )}
-                      </div>
-                    </th>
-                  ))}
+                  {headerGroup.headers.map(header => {
+                    const hideMobile = (header.column.columnDef.meta as { hideOnMobile?: boolean })?.hideOnMobile;
+                    return (
+                      <th
+                        key={header.id}
+                        style={{ width: header.getSize(), minWidth: header.getSize() }}
+                        className={`${hideMobile ? 'hidden lg:table-cell' : ''} h-10 px-2 text-left text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider bg-[var(--bg-primary)] border-b border-[var(--border)] ${
+                          header.column.getCanSort() ? 'cursor-pointer select-none hover:text-[var(--text-primary)]' : ''
+                        }`}
+                        onClick={header.column.getToggleSortingHandler()}
+                      >
+                        <div className="flex items-center gap-1">
+                          {flexRender(header.column.columnDef.header, header.getContext())}
+                          {header.column.getIsSorted() && (
+                            header.column.getIsSorted() === 'asc'
+                              ? <ChevronUp className="w-3 h-3" />
+                              : <ChevronDown className="w-3 h-3" />
+                          )}
+                        </div>
+                      </th>
+                    );
+                  })}
                 </tr>
               ))}
             </thead>
@@ -293,15 +316,18 @@ export function DomainTable({
                     }}
                     className="group border-b border-[var(--border)]/50 hover:bg-[var(--bg-panel)] transition-colors"
                   >
-                    {row.getVisibleCells().map(cell => (
-                      <td
-                        key={cell.id}
-                        style={{ width: cell.column.getSize(), minWidth: cell.column.getSize() }}
-                        className="h-13 px-2 text-xs"
-                      >
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </td>
-                    ))}
+                    {row.getVisibleCells().map(cell => {
+                      const hideMobile = (cell.column.columnDef.meta as { hideOnMobile?: boolean })?.hideOnMobile;
+                      return (
+                        <td
+                          key={cell.id}
+                          style={{ width: cell.column.getSize(), minWidth: cell.column.getSize() }}
+                          className={`${hideMobile ? 'hidden lg:table-cell' : ''} h-13 px-2 text-xs`}
+                        >
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </td>
+                      );
+                    })}
                   </tr>
                 );
               })}
@@ -311,8 +337,8 @@ export function DomainTable({
       </div>
 
       {/* Pagination */}
-      <div className="flex items-center justify-between px-4 py-2 border-t border-[var(--border)] bg-[var(--bg-panel)]">
-        <span className="text-xs text-[var(--text-muted)]">
+      <div className="flex items-center justify-between px-3 sm:px-4 py-2 border-t border-[var(--border)] bg-[var(--bg-panel)]">
+        <span className="hidden sm:inline text-xs text-[var(--text-muted)]">
           {total.toLocaleString()} total domains
         </span>
         <div className="flex items-center gap-2">

@@ -19,7 +19,6 @@ interface StatsHeaderProps {
   todayDrops: number;
   availableDomains: number;
   averageLength: number;
-  lastUpdate: string;
   totalIndexed: string;
 }
 
@@ -27,16 +26,14 @@ export function StatsHeader({
   todayDrops,
   availableDomains,
   averageLength,
-  lastUpdate,
   totalIndexed,
 }: StatsHeaderProps) {
   return (
-    <div className="flex items-stretch border border-[var(--border)] rounded-lg bg-[var(--bg-panel)] overflow-hidden">
+    <div className="flex flex-wrap items-stretch border border-[var(--border)] rounded-lg bg-[var(--bg-panel)] overflow-hidden">
       <StatCard label="Today's Drops" value={todayDrops.toLocaleString()} accent />
       <StatCard label="Available" value={availableDomains.toLocaleString()} />
-      <StatCard label="Avg Length" value={`${averageLength} characters`} />
-      <StatCard label="Last Update" value={lastUpdate} />
-      <StatCard label="Total Indexed" value={totalIndexed} />
+      <StatCard label="Avg Length" value={`${averageLength} chars`} />
+      <StatCard label="Total" value={totalIndexed} />
     </div>
   );
 }

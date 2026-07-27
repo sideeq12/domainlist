@@ -6,22 +6,31 @@ interface FilterPanelProps {
   onFilterChange: <K extends keyof DomainFilters>(key: K, value: DomainFilters[K]) => void;
   onClear: () => void;
   resultCount: number;
+  onClose?: () => void;
 }
 
-export function FilterPanel({ filters, onFilterChange, onClear, resultCount }: FilterPanelProps) {
+export function FilterPanel({ filters, onFilterChange, onClear, resultCount, onClose }: FilterPanelProps) {
   return (
-    <div className="w-64 shrink-0 border-r border-[var(--border)] bg-[var(--bg-panel)] overflow-y-auto">
+    <div className="w-64 h-full shrink-0 border-r border-[var(--border)] bg-[var(--bg-panel)] overflow-y-auto">
       <div className="p-4 space-y-5">
         {/* Header */}
         <div className="flex items-center justify-between">
           <h2 className="text-xs font-semibold text-[var(--text-primary)] uppercase tracking-wider">Filters</h2>
-          <button
-            onClick={onClear}
-            className="flex items-center gap-1 text-[10px] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
-          >
-            <RotateCcw className="w-3 h-3" />
-            Clear
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={onClose}
+              className="flex lg:hidden items-center gap-1 text-[10px] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+            >
+              Close
+            </button>
+            <button
+              onClick={onClear}
+              className="flex items-center gap-1 text-[10px] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+            >
+              <RotateCcw className="w-3 h-3" />
+              Clear
+            </button>
+          </div>
         </div>
 
         {/* Length Range */}

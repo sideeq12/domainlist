@@ -10,7 +10,7 @@ interface DetailDrawerProps {
 
 export function DetailDrawer({ domain, onClose, onToggleSave, isSaved }: DetailDrawerProps) {
   return (
-    <div className="w-80 shrink-0 border-l border-[var(--border)] bg-[var(--bg-panel)] overflow-y-auto">
+    <div className="w-full lg:w-80 shrink-0 border-l border-[var(--border)] bg-[var(--bg-panel)] overflow-y-auto fixed lg:static inset-x-0 bottom-0 z-30 max-h-[70vh] lg:max-h-none rounded-t-xl lg:rounded-none shadow-2xl lg:shadow-none">
       <div className="flex items-center justify-between p-4 border-b border-[var(--border)]">
         <h3 className="text-xs font-semibold text-[var(--text-primary)] uppercase tracking-wider">Domain Details</h3>
         <button
