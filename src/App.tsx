@@ -1,7 +1,7 @@
 import { Globe, Search, X, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronDown, Database, SearchX, ExternalLink } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { api } from './api/client';
-import type { BackendDomain } from './api/client';
+import type { BackendDomain, BackendExpiringDomain } from './api/client';
 
 const LENGTH_OPTIONS_MIN = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 const LENGTH_OPTIONS_MAX = [5, 6, 7, 8, 9, 10, 15, 20, 30];
@@ -33,8 +33,16 @@ function highlight(text: string, query: string) {
   );
 }
 
+function formatDate(value: string | null) {
+  if (!value) return '—';
+  return new Date(value).toLocaleDateString('en-US', {
+    month: 'short', day: 'numeric', year: 'numeric',
+  });
+}
+
 function App() {
   const [domains, setDomains] = useState<BackendDomain[]>([]);
+  const [expiring, setExpiring] = useState<BackendExpiringDomain[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
@@ -50,6 +58,8 @@ function App() {
   const [maxLen, setMaxLen] = useState(30);
   const [sort, setSort] = useState('alpha_asc');
   const [limit, setLimit] = useState(200);
+  const [view, setView] = useState<'expired' | 'expiring'>('expired');
+  const [availability, setAvailability] = useState<'available' | 'taken' | 'both'>('available');
 
   // Debounce search input to avoid spamming the API
   useEffect(() => {
@@ -73,26 +83,50 @@ function App() {
   useEffect(() => {
     const id = ++requestId.current;
     setLoading(true);
-    api.searchDomains({
-      page, limit, sort,
-      search: debouncedSearch || undefined,
-      min_length: minLen > 1 ? minLen : undefined,
-      max_length: maxLen < 30 ? maxLen : undefined,
-      has_hyphen: false,
-      has_numbers: false,
-    }).then(res => {
+
+    const finish = (res: { total: number; pages: number }) => {
       if (id !== requestId.current) return;
-      setDomains(res.items);
       setTotal(res.total);
       setTotalPages(res.pages);
       setLoading(false);
       if (listRef.current) listRef.current.scrollTop = 0;
-    }).catch(e => {
+    };
+
+    const onError = (e: unknown) => {
       if (id !== requestId.current) return;
-      setError(e.message);
+      setError(e instanceof Error ? e.message : 'Failed to load');
       setLoading(false);
-    });
-  }, [page, debouncedSearch, minLen, maxLen, sort, limit]);
+    };
+
+    if (view === 'expiring') {
+      api.getExpiringDomains({
+        page, limit, sort,
+        search: debouncedSearch || undefined,
+        min_length: minLen > 1 ? minLen : undefined,
+        max_length: maxLen < 30 ? maxLen : undefined,
+        has_hyphen: false,
+        has_numbers: false,
+      }).then(res => {
+        if (id !== requestId.current) return;
+        setExpiring(res.items);
+        finish(res);
+      }).catch(onError);
+    } else {
+      api.searchDomains({
+        page, limit, sort,
+        search: debouncedSearch || undefined,
+        available: availability === 'both' ? undefined : availability === 'available',
+        min_length: minLen > 1 ? minLen : undefined,
+        max_length: maxLen < 30 ? maxLen : undefined,
+        has_hyphen: false,
+        has_numbers: false,
+      }).then(res => {
+        if (id !== requestId.current) return;
+        setDomains(res.items);
+        finish(res);
+      }).catch(onError);
+    }
+  }, [page, debouncedSearch, minLen, maxLen, sort, limit, view, availability]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -126,9 +160,9 @@ function App() {
     <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] flex flex-col">
       {/* Header */}
       <header className="border-b border-[var(--border)] bg-[var(--bg-primary)]/80 backdrop-blur-xl sticky top-0 z-20">
-        <div className="max-w-6xl mx-auto px-5 h-16 flex items-center gap-4">
-          <div className="flex items-center gap-3 shrink-0">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-500/25">
+        <div className="max-w-6xl mx-auto px-4 sm:px-5 h-14 sm:h-16 flex items-center gap-3 sm:gap-4">
+          <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-500/25">
               <Globe className="w-5 h-5 text-white" />
             </div>
             <div className="hidden sm:block leading-tight">
@@ -174,9 +208,41 @@ function App() {
         </div>
       </header>
 
+      {/* View tabs */}
+      <div className="border-b border-[var(--border)] bg-[var(--bg-panel)]/40">
+        <div className="max-w-6xl mx-auto px-4 sm:px-5 flex items-center gap-1">
+          <button
+            onClick={() => { setView('expired'); setPage(1); }}
+            className={`relative h-11 px-4 text-xs font-semibold transition-colors ${
+              view === 'expired'
+                ? 'text-[var(--text-primary)]'
+                : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
+            }`}
+          >
+            Expired Domains
+            {view === 'expired' && (
+              <span className="absolute bottom-0 left-3 right-3 h-0.5 rounded-full bg-[var(--primary)]" />
+            )}
+          </button>
+          <button
+            onClick={() => { setView('expiring'); setPage(1); }}
+            className={`relative h-11 px-4 text-xs font-semibold transition-colors ${
+              view === 'expiring'
+                ? 'text-[var(--text-primary)]'
+                : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
+            }`}
+          >
+            Expiring (Redemption)
+            {view === 'expiring' && (
+              <span className="absolute bottom-0 left-3 right-3 h-0.5 rounded-full bg-[var(--warning)]" />
+            )}
+          </button>
+        </div>
+      </div>
+
       {/* Filters bar */}
       <div className="border-b border-[var(--border)] bg-[var(--bg-panel)]/60">
-        <div className="max-w-6xl mx-auto px-5 h-12 flex items-center gap-6">
+        <div className="max-w-6xl mx-auto px-4 sm:px-5 py-2.5 sm:py-0 sm:h-12 flex flex-wrap sm:flex-nowrap items-center gap-x-5 sm:gap-6 gap-y-2.5">
           <div className="flex items-center gap-2.5">
             <label className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider font-semibold">Length</label>
             <div className="flex items-center gap-1.5">
@@ -205,11 +271,44 @@ function App() {
             </div>
           </div>
 
+          <div className="w-px h-5 bg-[var(--border)] hidden sm:block" />
+
+          {view === 'expired' && (
+            <div className="flex items-center gap-1 p-0.5 rounded-lg bg-[var(--bg-panel)] border border-[var(--border)]">
+              {([
+                ['available', 'Available'],
+                ['taken', 'Taken'],
+                ['both', 'Both'],
+              ] as const).map(([val, label]) => (
+                <button
+                  key={val}
+                  onClick={() => { setAvailability(val); setPage(1); }}
+                  className={`h-7 px-3 text-xs font-medium rounded-md transition-colors ${
+                    availability === val
+                      ? 'bg-[var(--primary)] text-white shadow-sm'
+                      : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+
           <div className="ml-auto hidden sm:flex items-center gap-2 text-[11px] text-[var(--text-muted)]">
-            <span className="w-1.5 h-1.5 rounded-full bg-[var(--success)]" />
-            Available
-            <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-faint)] ml-2" />
-            Taken
+            {view === 'expiring' ? (
+              <>
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--warning)]" />
+                Redemption period
+              </>
+            ) : (
+              <>
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--success)]" />
+                Available
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-faint)] ml-2" />
+                Taken
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -221,7 +320,7 @@ function App() {
             <div className="flex items-center justify-center py-24">
               <div className="w-8 h-8 rounded-full border-2 border-[var(--border-strong)] border-t-[var(--primary)] animate-spin" />
             </div>
-          ) : domains.length === 0 ? (
+          ) : (view === 'expiring' ? expiring.length === 0 : domains.length === 0) ? (
             <div className="flex items-center justify-center py-24">
               <div className="text-center space-y-3">
                 <div className="mx-auto w-12 h-12 rounded-2xl bg-[var(--bg-panel)] border border-[var(--border)] flex items-center justify-center">
@@ -246,51 +345,93 @@ function App() {
           ) : (
             <>
               {/* Table header */}
-              <div className="grid grid-cols-12 gap-3 px-5 py-3 text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider border-b border-[var(--border)] bg-[var(--bg-primary)]/40">
-                <div className="col-span-7 sm:col-span-6">Domain</div>
-                <div className="col-span-2 sm:col-span-2 text-right">Length</div>
-                <div className="col-span-2 sm:col-span-2 text-right">Letters</div>
-                <div className="col-span-1 sm:col-span-2 text-right hidden sm:block">Status</div>
+              <div className="grid grid-cols-12 gap-3 px-4 sm:px-5 py-3 text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider border-b border-[var(--border)] bg-[var(--bg-primary)]/40">
+                <div className="col-span-9 sm:col-span-6">Domain</div>
+                <div className="col-span-3 sm:col-span-2 text-right">Length</div>
+                <div className="col-span-2 text-right hidden sm:block">Letters</div>
+                <div className="col-span-2 text-right hidden sm:block">{view === 'expiring' ? 'Drops' : 'Status'}</div>
               </div>
 
               {/* Table rows */}
-              {domains.map(d => (
-                <div
-                  key={d.id}
-                  className="grid grid-cols-12 gap-3 px-5 py-3 border-b border-[var(--border)]/40 hover:bg-[var(--bg-panel)]/70 transition-colors items-center"
-                >
-                  <div className="col-span-7 sm:col-span-6 min-w-0">
-                    <a
-                      href={`https://${d.domain}.${d.tld}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="group/domain inline-flex items-center gap-1.5 max-w-full text-sm font-medium text-[var(--text-primary)] hover:text-[var(--primary)] transition-colors"
-                      title={`Visit ${d.domain}.${d.tld}`}
-                    >
-                      <span className="truncate">
-                        {highlight(d.domain, debouncedSearch)}<span className="text-[var(--text-muted)]">.{d.tld}</span>
+              {view === 'expiring' ? (
+                expiring.map(d => (
+                  <div
+                    key={d.id}
+                    className="grid grid-cols-12 gap-3 px-4 sm:px-5 py-3 border-b border-[var(--border)]/40 hover:bg-[var(--bg-panel)]/70 transition-colors items-center"
+                  >
+                    <div className="col-span-9 sm:col-span-6 min-w-0 flex items-center gap-2">
+                      <span className="sm:hidden w-1.5 h-1.5 rounded-full shrink-0 bg-[var(--warning)]" />
+                      <a
+                        href={`https://${d.domain}.${d.tld}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="group/domain inline-flex items-center gap-1.5 max-w-full text-sm font-medium text-[var(--text-primary)] hover:text-[var(--primary)] transition-colors"
+                        title={`Visit ${d.domain}.${d.tld}`}
+                      >
+                        <span className="truncate">
+                          {highlight(d.domain, debouncedSearch)}<span className="text-[var(--text-muted)]">.{d.tld}</span>
+                        </span>
+                        <ExternalLink className="w-3.5 h-3.5 shrink-0 text-[var(--text-muted)] opacity-40 sm:opacity-0 sm:group-hover/domain:opacity-100 transition-opacity" />
+                      </a>
+                    </div>
+                    <div className="col-span-3 sm:col-span-2 text-right">
+                      <span className="inline-block min-w-[1.5rem] px-1.5 py-0.5 text-xs tabular-nums text-[var(--text-muted)] rounded-md bg-[var(--bg-elevated)] border border-[var(--border)]/60">{d.length}</span>
+                    </div>
+                    <div className="col-span-2 text-right hidden sm:block">
+                      <span className="text-xs tabular-nums text-[var(--text-muted)]">{d.letters}</span>
+                    </div>
+                    <div className="col-span-2 text-right hidden sm:block">
+                      <span className="inline-flex items-center gap-1.5 px-2 py-1 text-[10px] font-medium rounded-full border bg-[var(--warning)]/10 text-[var(--warning)] border-[var(--warning)]/20">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[var(--warning)]" />
+                        {formatDate(d.estimated_drop_date ?? d.pending_delete_date)}
                       </span>
-                      <ExternalLink className="w-3.5 h-3.5 shrink-0 text-[var(--text-muted)] opacity-0 group-hover/domain:opacity-100 transition-opacity" />
-                    </a>
+                    </div>
                   </div>
-                  <div className="col-span-2 sm:col-span-2 text-right">
-                    <span className="inline-block min-w-[1.5rem] px-1.5 py-0.5 text-xs tabular-nums text-[var(--text-muted)] rounded-md bg-[var(--bg-elevated)] border border-[var(--border)]/60">{d.length}</span>
+                ))
+              ) : (
+                domains.map(d => (
+                  <div
+                    key={d.id}
+                    className="grid grid-cols-12 gap-3 px-4 sm:px-5 py-3 border-b border-[var(--border)]/40 hover:bg-[var(--bg-panel)]/70 transition-colors items-center"
+                  >
+                    <div className="col-span-9 sm:col-span-6 min-w-0 flex items-center gap-2">
+                      <span className={`sm:hidden w-1.5 h-1.5 rounded-full shrink-0 ${d.available ? 'bg-[var(--success)]' : 'bg-[var(--text-faint)]'}`} />
+                      <a
+                        href={`https://${d.domain}.${d.tld}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="group/domain inline-flex items-center gap-1.5 max-w-full text-sm font-medium text-[var(--text-primary)] hover:text-[var(--primary)] transition-colors"
+                        title={`Visit ${d.domain}.${d.tld}`}
+                      >
+                        <span className="truncate">
+                          {highlight(d.domain, debouncedSearch)}<span className="text-[var(--text-muted)]">.{d.tld}</span>
+                        </span>
+                        <ExternalLink className="w-3.5 h-3.5 shrink-0 text-[var(--text-muted)] opacity-40 sm:opacity-0 sm:group-hover/domain:opacity-100 transition-opacity" />
+                      </a>
+                    </div>
+                    <div className="col-span-3 sm:col-span-2 text-right">
+                      <span className="inline-block min-w-[1.5rem] px-1.5 py-0.5 text-xs tabular-nums text-[var(--text-muted)] rounded-md bg-[var(--bg-elevated)] border border-[var(--border)]/60">{d.length}</span>
+                    </div>
+                    <div className="col-span-2 text-right hidden sm:block">
+                      <span className="text-xs tabular-nums text-[var(--text-muted)]">{d.letters}</span>
+                    </div>
+                    <div className="col-span-2 text-right hidden sm:block">
+                      <span className={`inline-flex items-center gap-1.5 px-2 py-1 text-[10px] font-medium rounded-full border ${
+                        d.available
+                          ? 'bg-[var(--success)]/10 text-[var(--success)] border-[var(--success)]/20'
+                          : d.status === 'pending_delete'
+                            ? 'bg-[var(--warning)]/10 text-[var(--warning)] border-[var(--warning)]/20'
+                            : 'bg-[var(--text-muted)]/10 text-[var(--text-muted)] border-[var(--text-muted)]/15'
+                      }`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${
+                          d.available ? 'bg-[var(--success)]' : d.status === 'pending_delete' ? 'bg-[var(--warning)]' : 'bg-[var(--text-faint)]'
+                        }`} />
+                        {d.available ? 'Available' : d.status === 'pending_delete' ? 'Pending' : 'Registered'}
+                      </span>
+                    </div>
                   </div>
-                  <div className="col-span-2 sm:col-span-2 text-right">
-                    <span className="text-xs tabular-nums text-[var(--text-muted)]">{d.letters}</span>
-                  </div>
-                  <div className="col-span-1 sm:col-span-2 text-right hidden sm:block">
-                    <span className={`inline-flex items-center gap-1.5 px-2 py-1 text-[10px] font-medium rounded-full border ${
-                      d.available
-                        ? 'bg-[var(--success)]/10 text-[var(--success)] border-[var(--success)]/20'
-                        : 'bg-[var(--text-muted)]/10 text-[var(--text-muted)] border-[var(--text-muted)]/15'
-                    }`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${d.available ? 'bg-[var(--success)]' : 'bg-[var(--text-faint)]'}`} />
-                      {d.available ? 'Available' : 'Taken'}
-                    </span>
-                  </div>
-                </div>
-              ))}
+                ))
+              )}
             </>
           )}
         </div>
@@ -298,10 +439,13 @@ function App() {
 
       {/* Pagination */}
       <div className="border-t border-[var(--border)] bg-[var(--bg-primary)]/80 backdrop-blur-xl sticky bottom-0">
-        <div className="max-w-6xl mx-auto px-5 h-14 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <span className="text-[11px] text-[var(--text-muted)] tabular-nums whitespace-nowrap">
+        <div className="max-w-6xl mx-auto px-4 sm:px-5 h-14 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="hidden sm:block text-[11px] text-[var(--text-muted)] tabular-nums whitespace-nowrap">
               Showing <span className="text-[var(--text-primary)] font-medium">{total === 0 ? 0 : (page - 1) * limit + 1}–{Math.min(page * limit, total)}</span> of <span className="text-[var(--text-primary)] font-medium">{total.toLocaleString()}</span>
+            </span>
+            <span className="sm:hidden text-[11px] text-[var(--text-muted)] tabular-nums whitespace-nowrap">
+              <span className="text-[var(--text-primary)] font-medium">{page}</span> / {totalPages}
             </span>
             <div className="hidden sm:flex items-center gap-1.5">
               <label className="text-[11px] text-[var(--text-muted)]">per page</label>
@@ -320,15 +464,15 @@ function App() {
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5">
-            <PageButton onClick={() => setPage(1)} disabled={page <= 1} title="First page">
+          <div className="flex items-center gap-1.5 shrink-0">
+            <PageButton onClick={() => setPage(1)} disabled={page <= 1} title="First page" className="hidden sm:flex">
               <ChevronsLeft className="w-4 h-4" />
             </PageButton>
             <PageButton onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1} title="Previous page">
               <ChevronLeft className="w-4 h-4" />
             </PageButton>
 
-            <div className="flex items-center gap-1">
+            <div className="hidden sm:flex items-center gap-1">
               {getPageItems(page, totalPages).map((item, i) =>
                 item === 'gap' ? (
                   <span key={`gap-${i}`} className="w-8 h-8 flex items-center justify-center text-xs text-[var(--text-faint)] select-none">…</span>
@@ -351,7 +495,7 @@ function App() {
             <PageButton onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} title="Next page">
               <ChevronRight className="w-4 h-4" />
             </PageButton>
-            <PageButton onClick={() => setPage(totalPages)} disabled={page >= totalPages} title="Last page">
+            <PageButton onClick={() => setPage(totalPages)} disabled={page >= totalPages} title="Last page" className="hidden sm:flex">
               <ChevronsRight className="w-4 h-4" />
             </PageButton>
           </div>
@@ -361,18 +505,19 @@ function App() {
   );
 }
 
-function PageButton({ children, onClick, disabled, title }: {
+function PageButton({ children, onClick, disabled, title, className = '' }: {
   children: React.ReactNode;
   onClick: () => void;
   disabled?: boolean;
   title: string;
+  className?: string;
 }) {
   return (
     <button
       onClick={onClick}
       disabled={disabled}
       title={title}
-      className="flex items-center justify-center w-8 h-8 rounded-lg bg-[var(--bg-panel)] border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--border-strong)] disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+      className={`flex items-center justify-center w-9 h-9 sm:w-8 sm:h-8 rounded-lg bg-[var(--bg-panel)] border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--border-strong)] disabled:opacity-30 disabled:cursor-not-allowed transition-all ${className}`}
     >
       {children}
     </button>

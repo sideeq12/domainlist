@@ -8,6 +8,14 @@ export interface DomainListResponse {
   pages: number;
 }
 
+export interface ExpiringDomainListResponse {
+  items: BackendExpiringDomain[];
+  total: number;
+  page: number;
+  limit: number;
+  pages: number;
+}
+
 export interface BackendDomain {
   id: number;
   domain: string;
@@ -17,9 +25,27 @@ export interface BackendDomain {
   numbers: number;
   has_hyphen: boolean;
   drop_date: string;
+  expiry_date: string | null;
   status: string;
   available: boolean;
   rdap_checked_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BackendExpiringDomain {
+  id: number;
+  domain: string;
+  tld: string;
+  length: number;
+  letters: number;
+  numbers: number;
+  has_hyphen: boolean;
+  expiry_date: string | null;
+  pending_delete_date: string | null;
+  estimated_drop_date: string | null;
+  first_seen_at: string;
+  last_checked_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -57,6 +83,21 @@ export interface SearchParams {
   limit?: number;
   search?: string;
   available?: boolean;
+  status?: string;
+  min_length?: number;
+  max_length?: number;
+  starts_with?: string;
+  ends_with?: string;
+  contains?: string;
+  has_numbers?: boolean;
+  has_hyphen?: boolean;
+  sort?: string;
+}
+
+export interface ExpiringSearchParams {
+  page?: number;
+  limit?: number;
+  search?: string;
   min_length?: number;
   max_length?: number;
   starts_with?: string;
@@ -99,6 +140,7 @@ class ApiClient {
     if (params.limit) q.set('limit', String(params.limit));
     if (params.search) q.set('search', params.search);
     if (params.available !== undefined) q.set('available', String(params.available));
+    if (params.status) q.set('status', params.status);
     if (params.min_length) q.set('min_length', String(params.min_length));
     if (params.max_length) q.set('max_length', String(params.max_length));
     if (params.starts_with) q.set('starts_with', params.starts_with);
@@ -112,6 +154,22 @@ class ApiClient {
 
   async getLatestDomains(limit = 50): Promise<DomainListResponse> {
     return this.request<DomainListResponse>(`/domains/latest?limit=${limit}`);
+  }
+
+  async getExpiringDomains(params: ExpiringSearchParams): Promise<ExpiringDomainListResponse> {
+    const q = new URLSearchParams();
+    if (params.page) q.set('page', String(params.page));
+    if (params.limit) q.set('limit', String(params.limit));
+    if (params.search) q.set('search', params.search);
+    if (params.min_length) q.set('min_length', String(params.min_length));
+    if (params.max_length) q.set('max_length', String(params.max_length));
+    if (params.starts_with) q.set('starts_with', params.starts_with);
+    if (params.ends_with) q.set('ends_with', params.ends_with);
+    if (params.contains) q.set('contains', params.contains);
+    if (params.has_numbers !== undefined) q.set('has_numbers', String(params.has_numbers));
+    if (params.has_hyphen !== undefined) q.set('has_hyphen', String(params.has_hyphen));
+    if (params.sort) q.set('sort', params.sort);
+    return this.request<ExpiringDomainListResponse>(`/expiring?${q.toString()}`);
   }
 
   async getDomain(domain: string): Promise<BackendDomain> {
