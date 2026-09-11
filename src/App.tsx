@@ -2,6 +2,7 @@ import { Globe, Search, X, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRigh
 import { useState, useEffect, useRef } from 'react';
 import { api } from './api/client';
 import type { BackendDomain, BackendExpiringDomain } from './api/client';
+import { DOMAIN_FILTERS, matchesFilter } from './filters';
 
 const LENGTH_OPTIONS_MIN = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 const LENGTH_OPTIONS_MAX = [5, 6, 7, 8, 9, 10, 15, 20, 30];
@@ -60,6 +61,7 @@ function App() {
   const [limit, setLimit] = useState(200);
   const [view, setView] = useState<'expired' | 'expiring'>('expired');
   const [availability, setAvailability] = useState<'available' | 'taken' | 'both'>('available');
+  const [activeFilter, setActiveFilter] = useState('');
 
   // Debounce search input to avoid spamming the API
   useEffect(() => {
@@ -134,6 +136,17 @@ function App() {
     setPage(1);
   };
 
+  const activeFilterDef = DOMAIN_FILTERS.find(f => f.name === activeFilter) ?? null;
+  const visibleDomains = activeFilterDef
+    ? domains.filter(d => matchesFilter(d.domain, activeFilterDef.keywords))
+    : domains;
+  const visibleExpiring = activeFilterDef
+    ? expiring.filter(d => matchesFilter(d.domain, activeFilterDef.keywords))
+    : expiring;
+  const displayTotal = activeFilterDef
+    ? (view === 'expiring' ? visibleExpiring.length : visibleDomains.length)
+    : total;
+
   if (error) {
     return (
       <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center px-5">
@@ -202,7 +215,7 @@ function App() {
           <div className="hidden md:flex items-center gap-2 px-3 h-9 rounded-xl bg-[var(--bg-panel)] border border-[var(--border)]">
             <Database className="w-3.5 h-3.5 text-[var(--primary)]" />
             <span className="text-xs text-[var(--text-muted)] tabular-nums">
-              {total.toLocaleString()}<span className="text-[var(--text-faint)]"> domains</span>
+              {displayTotal.toLocaleString()}<span className="text-[var(--text-faint)]"> domains</span>
             </span>
           </div>
         </div>
@@ -295,6 +308,25 @@ function App() {
             </div>
           )}
 
+          <div className="w-px h-5 bg-[var(--border)] hidden sm:block" />
+
+          <div className="flex items-center gap-2.5">
+            <label className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider font-semibold">Filter</label>
+            <div className="relative">
+              <select
+                value={activeFilter}
+                onChange={e => { setActiveFilter(e.target.value); setPage(1); }}
+                className="appearance-none h-8 pl-3 pr-8 text-xs font-medium bg-[var(--bg-panel)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] outline-none focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--ring)] hover:border-[var(--border-strong)] cursor-pointer transition-colors"
+              >
+                <option value="">None</option>
+                {DOMAIN_FILTERS.map(f => (
+                  <option key={f.name} value={f.name}>{f.name}</option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--text-muted)] pointer-events-none" />
+            </div>
+          </div>
+
           <div className="ml-auto hidden sm:flex items-center gap-2 text-[11px] text-[var(--text-muted)]">
             {view === 'expiring' ? (
               <>
@@ -320,7 +352,7 @@ function App() {
             <div className="flex items-center justify-center py-24">
               <div className="w-8 h-8 rounded-full border-2 border-[var(--border-strong)] border-t-[var(--primary)] animate-spin" />
             </div>
-          ) : (view === 'expiring' ? expiring.length === 0 : domains.length === 0) ? (
+          ) : (view === 'expiring' ? visibleExpiring.length === 0 : visibleDomains.length === 0) ? (
             <div className="flex items-center justify-center py-24">
               <div className="text-center space-y-3">
                 <div className="mx-auto w-12 h-12 rounded-2xl bg-[var(--bg-panel)] border border-[var(--border)] flex items-center justify-center">
@@ -354,7 +386,7 @@ function App() {
 
               {/* Table rows */}
               {view === 'expiring' ? (
-                expiring.map(d => (
+                visibleExpiring.map(d => (
                   <div
                     key={d.id}
                     className="grid grid-cols-12 gap-3 px-4 sm:px-5 py-3 border-b border-[var(--border)]/40 hover:bg-[var(--bg-panel)]/70 transition-colors items-center"
@@ -389,7 +421,7 @@ function App() {
                   </div>
                 ))
               ) : (
-                domains.map(d => (
+                visibleDomains.map(d => (
                   <div
                     key={d.id}
                     className="grid grid-cols-12 gap-3 px-4 sm:px-5 py-3 border-b border-[var(--border)]/40 hover:bg-[var(--bg-panel)]/70 transition-colors items-center"
