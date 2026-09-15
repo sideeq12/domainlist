@@ -92,6 +92,9 @@ export interface SearchParams {
   has_numbers?: boolean;
   has_hyphen?: boolean;
   sort?: string;
+  drop_date_from?: string;
+  drop_date_to?: string;
+  last_days?: number;
 }
 
 export interface ExpiringSearchParams {
@@ -149,6 +152,9 @@ class ApiClient {
     if (params.has_numbers !== undefined) q.set('has_numbers', String(params.has_numbers));
     if (params.has_hyphen !== undefined) q.set('has_hyphen', String(params.has_hyphen));
     if (params.sort) q.set('sort', params.sort);
+    if (params.drop_date_from) q.set('drop_date_from', params.drop_date_from);
+    if (params.drop_date_to) q.set('drop_date_to', params.drop_date_to);
+    if (params.last_days) q.set('last_days', String(params.last_days));
     return this.request<DomainListResponse>(`/domains?${q.toString()}`);
   }
 

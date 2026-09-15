@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { api } from './api/client';
 import type { BackendDomain, BackendExpiringDomain } from './api/client';
 import { DOMAIN_FILTERS, matchesFilter } from './filters';
+import { Select } from './components/Select';
 
 const LENGTH_OPTIONS_MIN = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 const LENGTH_OPTIONS_MAX = [5, 6, 7, 8, 9, 10, 15, 20, 30];
@@ -62,6 +63,9 @@ function App() {
   const [view, setView] = useState<'expired' | 'expiring'>('expired');
   const [availability, setAvailability] = useState<'available' | 'taken' | 'both'>('available');
   const [activeFilter, setActiveFilter] = useState('');
+  const [lastDays, setLastDays] = useState<number | undefined>(7);
+  const [dropDateFrom, setDropDateFrom] = useState<string | undefined>(undefined);
+  const [dropDateTo, setDropDateTo] = useState<string | undefined>(undefined);
 
   // Debounce search input to avoid spamming the API
   useEffect(() => {
@@ -122,13 +126,16 @@ function App() {
         max_length: maxLen < 30 ? maxLen : undefined,
         has_hyphen: false,
         has_numbers: false,
+        last_days: lastDays,
+        drop_date_from: dropDateFrom,
+        drop_date_to: dropDateTo,
       }).then(res => {
         if (id !== requestId.current) return;
         setDomains(res.items);
         finish(res);
       }).catch(onError);
     }
-  }, [page, debouncedSearch, minLen, maxLen, sort, limit, view, availability]);
+  }, [page, debouncedSearch, minLen, maxLen, sort, limit, view, availability, lastDays, dropDateFrom, dropDateTo]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -281,6 +288,84 @@ function App() {
                 <option value="length_desc">Longest</option>
               </select>
               <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--text-muted)] pointer-events-none" />
+            </div>
+          </div>
+
+<div className="w-px h-5 bg-[var(--border)] hidden sm:block" />
+
+          <div className="flex items-center gap-2.5">
+            <label className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider font-semibold">Date</label>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
+                <span className="text-[11px] text-[var(--text-faint)]">Last</span>
+                <select
+                  value={lastDays ?? ''}
+                  onChange={e => { setLastDays(e.target.value ? parseInt(e.target.value) : undefined); setPage(1); setDropDateFrom(undefined); setDropDateTo(undefined); }}
+                  className="appearance-none h-8 pl-3 pr-7 text-xs font-medium bg-[var(--bg-panel)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] outline-none focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--ring)] hover:border-[var(--border-strong)] cursor-pointer transition-colors"
+                >
+                  <option value="">All time</option>
+                  <option value="1">Last 1 day</option>
+                  <option value="7">Last 7 days</option>
+                  <option value="30">Last 30 days</option>
+                </select>
+                <span className="text-[11px] text-[var(--text-faint)]">days</span>
+              </div>
+
+              <div className="w-px h-5 bg-[var(--border)] hidden sm:block" />
+
+              <div className="flex items-center gap-2.5">
+                <label className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider font-semibold">Quick</label>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => { setLastDays(1); setPage(1); setDropDateFrom(undefined); setDropDateTo(undefined); }}
+                    className={`h-7 px-2 text-[10px] font-medium rounded-md transition-colors ${lastDays === 1 ? 'bg-[var(--primary)] text-white shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] bg-[var(--bg-panel)] border border-[var(--border)]'}`}
+                  >
+                    Today
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const yesterday = new Date();
+                      yesterday.setDate(yesterday.getDate() - 1);
+                      const dateStr = yesterday.toISOString().split('T')[0];
+                      setDropDateFrom(dateStr);
+                      setDropDateTo(dateStr);
+                      setPage(1);
+                      setLastDays(undefined);
+                    }}
+                    className={`h-7 px-2 text-[10px] font-medium rounded-md transition-colors ${
+                      dropDateFrom === new Date(Date.now() - 86400000).toISOString().split('T')[0]
+                        ? 'bg-[var(--primary)] text-white shadow-sm'
+                        : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] bg-[var(--bg-panel)] border border-[var(--border)]'
+                    }`}
+                  >
+                    Yesterday
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setLastDays(3); setPage(1); setDropDateFrom(undefined); setDropDateTo(undefined); }}
+                    className={`h-7 px-2 text-[10px] font-medium rounded-md transition-colors ${
+                      lastDays === 3
+                        ? 'bg-[var(--primary)] text-white shadow-sm'
+                        : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] bg-[var(--bg-panel)] border border-[var(--border)]'
+                    }`}
+                  >
+                    Last 3d
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setLastDays(7); setPage(1); setDropDateFrom(undefined); setDropDateTo(undefined); }}
+                    className={`h-7 px-2 text-[10px] font-medium rounded-md transition-colors ${
+                      lastDays === 7
+                        ? 'bg-[var(--primary)] text-white shadow-sm'
+                        : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] bg-[var(--bg-panel)] border border-[var(--border)]'
+                    }`}
+                  >
+                    Last 7d
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -553,27 +638,6 @@ function PageButton({ children, onClick, disabled, title, className = '' }: {
     >
       {children}
     </button>
-  );
-}
-
-function Select({ value, onChange, options }: {
-  value: number;
-  onChange: (v: number) => void;
-  options: number[];
-}) {
-  return (
-    <div className="relative">
-      <select
-        value={value}
-        onChange={e => onChange(Number(e.target.value))}
-        className="appearance-none h-8 pl-3 pr-7 text-xs font-medium bg-[var(--bg-panel)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] outline-none focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--ring)] hover:border-[var(--border-strong)] cursor-pointer transition-colors"
-      >
-        {options.map(n => (
-          <option key={n} value={n}>{n}{n >= 30 ? '+' : ''}</option>
-        ))}
-      </select>
-      <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--text-muted)] pointer-events-none" />
-    </div>
   );
 }
 
